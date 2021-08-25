@@ -1,13 +1,8 @@
 package memory
 
 import (
-	"errors"
-
 	"github.com/sirupsen/logrus"
-)
-
-var (
-	ErrNotExist = errors.New("object does not exist")
+	"github.com/xperimental/bukky/internal/store"
 )
 
 type Bucket map[string]string
@@ -17,7 +12,7 @@ type Store struct {
 	buckets map[string]Bucket
 }
 
-func NewStore(log logrus.FieldLogger) *Store {
+func NewStore(log logrus.FieldLogger) store.Store {
 	return &Store{
 		log:     log,
 		buckets: make(map[string]Bucket),
@@ -27,12 +22,12 @@ func NewStore(log logrus.FieldLogger) *Store {
 func (s *Store) Get(bucket, objectID string) (string, error) {
 	b, ok := s.buckets[bucket]
 	if !ok {
-		return "", ErrNotExist
+		return "", store.ErrNotFound
 	}
 
 	obj, ok := b[objectID]
 	if !ok {
-		return "", ErrNotExist
+		return "", store.ErrNotFound
 	}
 
 	return obj, nil
@@ -52,11 +47,11 @@ func (s *Store) Put(bucket string, objectID string, content string) (string, err
 func (s *Store) Delete(bucket, objectID string) error {
 	b, ok := s.buckets[bucket]
 	if !ok {
-		return ErrNotExist
+		return store.ErrNotFound
 	}
 
 	if _, ok := b[objectID]; !ok {
-		return ErrNotExist
+		return store.ErrNotFound
 	}
 
 	delete(b, objectID)

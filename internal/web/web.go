@@ -8,20 +8,20 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/xperimental/bukky/internal/memory"
+	"github.com/xperimental/bukky/internal/store"
 )
 
 type Router struct {
-	log    logrus.FieldLogger
-	store  *memory.Store
-	router *mux.Router
+	log     logrus.FieldLogger
+	backend store.Store
+	router  *mux.Router
 }
 
-func NewRouter(log logrus.FieldLogger, store *memory.Store) *Router {
+func NewRouter(log logrus.FieldLogger, backend store.Store) *Router {
 	r := &Router{
-		log:    log,
-		store:  store,
-		router: mux.NewRouter(),
+		log:     log,
+		backend: backend,
+		router:  mux.NewRouter(),
 	}
 
 	objects := r.router.Path("/objects/{bucket}/{objectID}").Subrouter()
@@ -43,9 +43,9 @@ func (r *Router) healthHandler(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) getHandler(w http.ResponseWriter, req *http.Request) {
 	bucket, objectID := reqVars(req)
-	content, err := r.store.Get(bucket, objectID)
+	content, err := r.backend.Get(bucket, objectID)
 	switch {
-	case err == memory.ErrNotExist:
+	case err == store.ErrNotFound:
 		http.Error(w, fmt.Sprintf("object not found: %s/%s", bucket, objectID), http.StatusNotFound)
 		return
 	case err != nil:
@@ -67,7 +67,7 @@ func (r *Router) putHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id, err := r.store.Put(bucket, objectID, string(content))
+	id, err := r.backend.Put(bucket, objectID, string(content))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("can not save object: %s", err), http.StatusInternalServerError)
 		return
@@ -86,9 +86,9 @@ func (r *Router) putHandler(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) deleteHandler(w http.ResponseWriter, req *http.Request) {
 	bucket, objectID := reqVars(req)
-	err := r.store.Delete(bucket, objectID)
+	err := r.backend.Delete(bucket, objectID)
 	switch {
-	case err == memory.ErrNotExist:
+	case err == store.ErrNotFound:
 		http.Error(w, fmt.Sprintf("object not found: %s/%s", bucket, objectID), http.StatusNotFound)
 		return
 	case err != nil:

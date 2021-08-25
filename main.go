@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"github.com/xperimental/bukky/internal/memory"
+	"github.com/xperimental/bukky/internal/store/memory"
 	"github.com/xperimental/bukky/internal/web"
 )
 
