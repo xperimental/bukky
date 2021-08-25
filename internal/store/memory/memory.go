@@ -1,59 +1,84 @@
 package memory
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
+	"github.com/xperimental/bukky/internal/digest"
 	"github.com/xperimental/bukky/internal/store"
 )
 
-type Bucket map[string]string
+type bucket struct {
+	objects  map[string]digest.Digest
+	contents map[digest.Digest]string
+}
 
 type Store struct {
-	log     logrus.FieldLogger
-	buckets map[string]Bucket
+	log      logrus.FieldLogger
+	buckets  map[string]*bucket
+	digester digest.Digester
 }
 
 func NewStore(log logrus.FieldLogger) store.Store {
 	return &Store{
-		log:     log,
-		buckets: make(map[string]Bucket),
+		log:      log,
+		buckets:  make(map[string]*bucket),
+		digester: digest.SHA256,
 	}
 }
 
-func (s *Store) Get(bucket, objectID string) (string, error) {
-	b, ok := s.buckets[bucket]
+func (s *Store) Get(bucketName, objectID string) (string, error) {
+	b, ok := s.buckets[bucketName]
 	if !ok {
 		return "", store.ErrNotFound
 	}
 
-	obj, ok := b[objectID]
+	obj, ok := b.objects[objectID]
 	if !ok {
 		return "", store.ErrNotFound
 	}
 
-	return obj, nil
-}
-
-func (s *Store) Put(bucket string, objectID string, content string) (string, error) {
-	b, ok := s.buckets[bucket]
+	content, ok := b.contents[obj]
 	if !ok {
-		b = make(Bucket)
-		s.buckets[bucket] = b
+		return "", fmt.Errorf("can not find content with digest %q", obj)
 	}
 
-	b[objectID] = content
+	return content, nil
+}
+
+func (s *Store) Put(bucketName string, objectID string, content string) (string, error) {
+	b, ok := s.buckets[bucketName]
+	if !ok {
+		b = &bucket{
+			objects:  make(map[string]digest.Digest),
+			contents: make(map[digest.Digest]string),
+		}
+		s.buckets[bucketName] = b
+	}
+
+	contentDigest, err := s.digester(content)
+	if err != nil {
+		return "", fmt.Errorf("can not create digest: %w", err)
+	}
+
+	if _, ok := b.contents[contentDigest]; !ok {
+		b.contents[contentDigest] = content
+	}
+	b.objects[objectID] = contentDigest
+
 	return objectID, nil
 }
 
-func (s *Store) Delete(bucket, objectID string) error {
-	b, ok := s.buckets[bucket]
+func (s *Store) Delete(bucketName, objectID string) error {
+	b, ok := s.buckets[bucketName]
 	if !ok {
 		return store.ErrNotFound
 	}
 
-	if _, ok := b[objectID]; !ok {
+	if _, ok := b.objects[objectID]; !ok {
 		return store.ErrNotFound
 	}
 
-	delete(b, objectID)
+	delete(b.objects, objectID)
 	return nil
 }

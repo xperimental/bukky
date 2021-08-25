@@ -28,6 +28,7 @@ func NewRouter(log logrus.FieldLogger, backend store.Store) *Router {
 	objects.Methods(http.MethodGet).HandlerFunc(r.getHandler)
 	objects.Methods(http.MethodPut).HandlerFunc(r.putHandler)
 	objects.Methods(http.MethodDelete).HandlerFunc(r.deleteHandler)
+
 	r.router.Path("/").HandlerFunc(r.healthHandler)
 
 	return r
