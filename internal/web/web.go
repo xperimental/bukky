@@ -29,6 +29,7 @@ func NewRouter(log logrus.FieldLogger, backend store.Store) *Router {
 	objects.Methods(http.MethodPut).HandlerFunc(r.putHandler)
 	objects.Methods(http.MethodDelete).HandlerFunc(r.deleteHandler)
 
+	r.router.Path("/stats").HandlerFunc(r.statsHandler)
 	r.router.Path("/").HandlerFunc(r.healthHandler)
 
 	return r
@@ -40,6 +41,15 @@ func (r *Router) Handler() http.Handler {
 
 func (r *Router) healthHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "Running.")
+}
+
+func (r *Router) statsHandler(w http.ResponseWriter, req *http.Request) {
+	stats := r.backend.Stats()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		r.log.Errorf("Error encoding stats JSON: %s", err)
+	}
 }
 
 func (r *Router) getHandler(w http.ResponseWriter, req *http.Request) {
@@ -74,6 +84,7 @@ func (r *Router) putHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	response := struct {
 		ID string `json:"id"`

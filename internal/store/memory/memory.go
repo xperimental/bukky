@@ -27,6 +27,20 @@ func NewStore(log logrus.FieldLogger) store.Store {
 	}
 }
 
+func (s *Store) Stats() store.StoreStats {
+	buckets := []store.BucketStats{}
+	for _, b := range s.buckets {
+		buckets = append(buckets, store.BucketStats{
+			NumObjects:  uint(len(b.objects)),
+			NumContents: uint(len(b.contents)),
+		})
+	}
+
+	return store.StoreStats{
+		Buckets: buckets,
+	}
+}
+
 func (s *Store) Get(bucketName, objectID string) (string, error) {
 	b, ok := s.buckets[bucketName]
 	if !ok {
