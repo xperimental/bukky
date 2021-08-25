@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -46,10 +45,7 @@ func (r *Router) healthHandler(w http.ResponseWriter, req *http.Request) {
 func (r *Router) statsHandler(w http.ResponseWriter, req *http.Request) {
 	stats := r.backend.Stats()
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		r.log.Errorf("Error encoding stats JSON: %s", err)
-	}
+	sendJSON(r.log, w, http.StatusOK, stats)
 }
 
 func (r *Router) getHandler(w http.ResponseWriter, req *http.Request) {
@@ -84,16 +80,12 @@ func (r *Router) putHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 	response := struct {
 		ID string `json:"id"`
 	}{
 		ID: id,
 	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		r.log.Errorf("Error writing response: %s", err)
-	}
+	sendJSON(r.log, w, http.StatusCreated, response)
 }
 
 func (r *Router) deleteHandler(w http.ResponseWriter, req *http.Request) {
