@@ -16,6 +16,63 @@ var (
 	log = logrus.New()
 )
 
+func TestStats(t *testing.T) {
+	tt := []struct {
+		desc      string
+		buckets   map[string]*bucket
+		wantStats store.StoreStats
+	}{
+		{
+			desc:    "empty",
+			buckets: map[string]*bucket{},
+			wantStats: store.StoreStats{
+				Buckets: map[string]store.BucketStats{},
+			},
+		},
+		{
+			desc: "one bucket",
+			buckets: map[string]*bucket{
+				"test-bucket": {
+					objects: map[string]digest.Digest{
+						"test-object":  "test-digest",
+						"test-object2": "test-digest",
+						"test-object3": "test-digest2",
+						"test-object4": "test-digest2",
+					},
+					contents: map[digest.Digest]string{
+						"test-digest":  "test-content",
+						"test-digest2": "test-content2",
+					},
+				},
+			},
+			wantStats: store.StoreStats{
+				Buckets: map[string]store.BucketStats{
+					"test-bucket": {
+						NumObjects:  4,
+						NumContents: 2,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewStore(log)
+			s.buckets = tc.buckets
+
+			stats := s.Stats()
+
+			if diff := cmp.Diff(stats, tc.wantStats); diff != "" {
+				t.Errorf("stats differ: -got+want\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestGet(t *testing.T) {
 	tt := []struct {
 		desc        string

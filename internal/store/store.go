@@ -8,7 +8,7 @@ var (
 )
 
 type StoreStats struct {
-	Buckets []BucketStats `json:"buckets"`
+	Buckets map[string]BucketStats `json:"buckets"`
 }
 
 type BucketStats struct {
