@@ -3,6 +3,7 @@ module github.com/xperimental/bukky
 go 1.17
 
 require (
+	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.8.0
 	github.com/sirupsen/logrus v1.8.1
 )

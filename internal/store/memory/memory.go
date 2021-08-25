@@ -19,7 +19,7 @@ type Store struct {
 	digester digest.Digester
 }
 
-func NewStore(log logrus.FieldLogger) store.Store {
+func NewStore(log logrus.FieldLogger) *Store {
 	return &Store{
 		log:      log,
 		buckets:  make(map[string]*bucket),
@@ -61,6 +61,11 @@ func (s *Store) Get(bucketName, objectID string) (string, error) {
 }
 
 func (s *Store) Put(bucketName string, objectID string, content string) (string, error) {
+	contentDigest, err := s.digester(content)
+	if err != nil {
+		return "", fmt.Errorf("can not create digest: %w", err)
+	}
+
 	b, ok := s.buckets[bucketName]
 	if !ok {
 		b = &bucket{
@@ -68,11 +73,6 @@ func (s *Store) Put(bucketName string, objectID string, content string) (string,
 			contents: make(map[digest.Digest]string),
 		}
 		s.buckets[bucketName] = b
-	}
-
-	contentDigest, err := s.digester(content)
-	if err != nil {
-		return "", fmt.Errorf("can not create digest: %w", err)
 	}
 
 	if _, ok := b.contents[contentDigest]; !ok {
@@ -89,10 +89,25 @@ func (s *Store) Delete(bucketName, objectID string) error {
 		return store.ErrNotFound
 	}
 
-	if _, ok := b.objects[objectID]; !ok {
+	contentDigest, ok := b.objects[objectID]
+	if !ok {
 		return store.ErrNotFound
 	}
 
 	delete(b.objects, objectID)
+
+	found := false
+loop:
+	for _, d := range b.objects {
+		if d == contentDigest {
+			found = true
+			break loop
+		}
+	}
+
+	if !found {
+		delete(b.contents, contentDigest)
+	}
+
 	return nil
 }
