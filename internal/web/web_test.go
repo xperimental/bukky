@@ -56,7 +56,9 @@ func (f fakeStore) Delete(bucket, objectID string) error {
 }
 
 func (f fakeStore) Stats() store.StoreStats {
-	panic("implement me")
+	return store.StoreStats{
+		Buckets: map[string]store.BucketStats{},
+	}
 }
 
 type errorReader struct{}
@@ -259,6 +261,48 @@ func TestPut(t *testing.T) {
 
 			if rec.Code != tc.wantStatus {
 				t.Errorf("got status %v, want %v", rec.Code, tc.wantStatus)
+			}
+
+			body := rec.Body.String()
+			if diff := cmp.Diff(body, tc.wantBody); diff != "" {
+				t.Errorf("body differs: -got+want\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSimpleHandlers(t *testing.T) {
+	tt := []struct {
+		desc     string
+		path     string
+		wantBody string
+	}{
+		{
+			desc:     "healthcheck",
+			path:     "/health",
+			wantBody: "Running.\n",
+		},
+		{
+			desc:     "empty stats",
+			path:     "/stats",
+			wantBody: `{"buckets":{}}
+`,
+		},
+	}
+
+	for _, tc := range tt {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			r := NewRouter(log, fakeStore{})
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+
+			r.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Errorf("got non-ok status: %d", rec.Code)
 			}
 
 			body := rec.Body.String()
