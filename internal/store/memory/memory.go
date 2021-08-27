@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/xperimental/bukky/internal/digest"
@@ -14,20 +15,25 @@ type bucket struct {
 }
 
 type Store struct {
-	log      logrus.FieldLogger
-	buckets  map[string]*bucket
-	digester digest.Digester
+	log         logrus.FieldLogger
+	buckets     map[string]*bucket
+	bucketMutex *sync.RWMutex
+	digester    digest.Digester
 }
 
 func NewStore(log logrus.FieldLogger) *Store {
 	return &Store{
-		log:      log,
-		buckets:  make(map[string]*bucket),
-		digester: digest.SHA256,
+		log:         log,
+		buckets:     make(map[string]*bucket),
+		bucketMutex: &sync.RWMutex{},
+		digester:    digest.SHA256,
 	}
 }
 
 func (s *Store) Stats() store.StoreStats {
+	s.bucketMutex.RLock()
+	defer s.bucketMutex.RUnlock()
+
 	buckets := map[string]store.BucketStats{}
 	for k, b := range s.buckets {
 		buckets[k] = store.BucketStats{
@@ -42,6 +48,9 @@ func (s *Store) Stats() store.StoreStats {
 }
 
 func (s *Store) Get(bucketName, objectID string) (string, error) {
+	s.bucketMutex.RLock()
+	defer s.bucketMutex.RUnlock()
+
 	b, ok := s.buckets[bucketName]
 	if !ok {
 		return "", store.ErrNotFound
@@ -61,6 +70,9 @@ func (s *Store) Get(bucketName, objectID string) (string, error) {
 }
 
 func (s *Store) Put(bucketName string, objectID string, content string) (string, error) {
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+
 	contentDigest, err := s.digester(content)
 	if err != nil {
 		return "", fmt.Errorf("can not create digest: %w", err)
@@ -84,6 +96,9 @@ func (s *Store) Put(bucketName string, objectID string, content string) (string,
 }
 
 func (s *Store) Delete(bucketName, objectID string) error {
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+
 	b, ok := s.buckets[bucketName]
 	if !ok {
 		return store.ErrNotFound
